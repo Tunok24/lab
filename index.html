@@ -126,7 +126,8 @@ document.getElementById('refreshStats').addEventListener('click', loadStats);
   await hit();       // increments + shows detected country
   await loadStats(); // builds the table
 })();
-<script>
+
+// <script>
 /* --- simple equirectangular projection + centroids --- */
 const MAP = {
   // lon, lat (deg). Add more as needed. Use ISO A2 codes to match your Worker.
@@ -248,9 +249,7 @@ new ResizeObserver(entries => {
     renderBubbles((window.__latestCC)||{});
   }
 }).observe(document.getElementById('mapWrap'));
-</script>
 
-  
 </script>
 </body>
 </html>
