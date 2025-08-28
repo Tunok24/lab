@@ -85,7 +85,7 @@ const API = 'https://gitvisitstat.tunok-24.workers.dev'; // <-- your Worker URL
 
 // Build a lightweight country list (expand anytime)
 const CCODES = new Intl.DisplayNames(['en'], { type:'region' });
-const COUNTRY_CODES = ['US','CA','GB','DE','FR','IN','CN','JP','KR','AU','BR','MX','ZA','NG','IT','ES','SE','NO','FI','NL','PL','TR','AE','SG','MY','ID','PH','VN','TH','TW','HK','NZ','AR','CL','CO','PE','BE','CH','AT','PT','IE','GR','DK','CZ','HU','RO','BG','UA','SK'];
+const COUNTRY_CODES = ['US','CA','GB','DE','FR','IN','CN','JP','KR','AU','BR','MX','ZA','NG','IT','ES','SE','NO','FI','NL','PL','TR','AE','SG','MY','ID','PH','VN','TH','TW','HK','NZ','AR','CL','CO','PE','BE','CH','AT','PT','IE','GR','DK','CZ','HU','RO','BG','UA','SK','BA'];
 
 const detectedEl = document.getElementById('detected');
 const selectEl = document.getElementById('country');
@@ -151,7 +151,7 @@ const MAP = {
   GB:[-1.6,52.4], IE:[-8.1,53.3], FR:[2.3,46.2], ES:[-3.7,40.3], PT:[-8.0,39.6], IT:[12.6,42.8],
   DE:[10.2,51.1], AT:[14.1,47.6], CH:[8.2,46.8], BE:[4.5,50.6], NL:[5.3,52.2], SE:[16.3,62.8], NO:[8.5,61.2], FI:[26.3,64.9], DK:[10.0,56.2],
   PL:[19.1,52.1], CZ:[15.3,49.8], SK:[19.5,48.7], HU:[19.1,47.2], RO:[24.8,45.9], BG:[25.2,42.7], GR:[22.9,39.1], UA:[31.2,49.0],
-  TR:[35.2,39.0], RU:[105.3,61.5],
+  TR:[35.2,39.0], RU:[105.3,61.5], BA:[81.1, 22.4],
   AE:[54.3,24.3], SA:[45.0,24.0], EG:[29.9,26.8], ZA:[24.7,-29.0], NG:[8.1,9.6],
   IN:[79.1,22.4], CN:[104.2,35.9], JP:[138.0,37.7], KR:[127.8,36.4], TW:[121.0,23.7], HK:[114.1,22.3],
   SG:[103.8,1.35], MY:[102.3,4.2], ID:[113.9,-0.8], PH:[122.9,11.7], VN:[106.3,16.7], TH:[100.9,15.6],
