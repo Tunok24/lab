@@ -127,24 +127,32 @@ document.getElementById('refreshStats').addEventListener('click', loadStats);
   await loadStats(); // builds the table
 })();
 
-// <script>
 /* --- simple equirectangular projection + centroids --- */
 const MAP = {
-  // lon, lat (deg). Add more as needed. Use ISO A2 codes to match your Worker.
   US:[-98.5,39.8], CA:[-106.3,56.1], MX:[-102.6,23.9], BR:[-51.9,-10.8], AR:[-64.2,-34.1],
   GB:[-1.6,52.4], IE:[-8.1,53.3], FR:[2.3,46.2], ES:[-3.7,40.3], PT:[-8.0,39.6], IT:[12.6,42.8],
   DE:[10.2,51.1], AT:[14.1,47.6], CH:[8.2,46.8], BE:[4.5,50.6], NL:[5.3,52.2], SE:[16.3,62.8], NO:[8.5,61.2], FI:[26.3,64.9], DK:[10.0,56.2],
   PL:[19.1,52.1], CZ:[15.3,49.8], SK:[19.5,48.7], HU:[19.1,47.2], RO:[24.8,45.9], BG:[25.2,42.7], GR:[22.9,39.1], UA:[31.2,49.0],
-  TR:[35.2,39.0], RU:[105.3,61.5], UA:[31.2,49.0], // UA repeated OK
+  TR:[35.2,39.0], RU:[105.3,61.5],
   AE:[54.3,24.3], SA:[45.0,24.0], EG:[29.9,26.8], ZA:[24.7,-29.0], NG:[8.1,9.6],
   IN:[79.1,22.4], CN:[104.2,35.9], JP:[138.0,37.7], KR:[127.8,36.4], TW:[121.0,23.7], HK:[114.1,22.3],
   SG:[103.8,1.35], MY:[102.3,4.2], ID:[113.9,-0.8], PH:[122.9,11.7], VN:[106.3,16.7], TH:[100.9,15.6],
   AU:[134.5,-25.7], NZ:[172.5,-41.8], CL:[-71.5,-35.7], CO:[-74.3,4.8], PE:[-75.0,-9.2]
 };
 
-const mapCanvas = document.getElementById('mapCanvas');
-const mapCtx = mapCanvas.getContext('2d', { alpha: true });
+const mapCanvas  = document.getElementById('mapCanvas');
+const mapCtx     = mapCanvas.getContext('2d', { alpha: true });
 const mapTooltip = document.getElementById('mapTooltip');
+const mapWrap    = document.getElementById('mapWrap');
+
+// helper: set canvas size to wrapper (keeps pixels sharp)
+function sizeCanvasToWrap() {
+  const w = Math.max(320, mapWrap.clientWidth | 0);
+  const HtoW = 480/860; // keep same aspect as background
+  const h = Math.round(w * HtoW);
+  mapCanvas.width  = w;
+  mapCanvas.height = h;
+}
 
 // project lon/lat to pixels (equirectangular)
 function proj(lon, lat, W, H) {
@@ -154,7 +162,6 @@ function proj(lon, lat, W, H) {
 }
 
 function niceRadius(n, maxCount, W, H) {
-  // scale bubble size: 0..maxCount -> 3..(min(W,H)*0.05)
   const rMax = Math.max(10, Math.min(W,H) * 0.05);
   if (maxCount <= 0) return 0;
   return 3 + Math.sqrt(n / maxCount) * (rMax - 3);
@@ -162,9 +169,7 @@ function niceRadius(n, maxCount, W, H) {
 
 let lastBubbles = []; // for hover
 function renderBubbles(ccCounts) {
-  const rect = mapCanvas.getBoundingClientRect();
   const W = mapCanvas.width, H = mapCanvas.height;
-
   mapCtx.clearRect(0,0,W,H);
 
   const entries = Object.entries(ccCounts).filter(([cc,n]) => MAP[cc] && n>0);
@@ -177,18 +182,14 @@ function renderBubbles(ccCounts) {
     return { cc, n, x, y, r };
   });
 
-  // draw soft shadow first
+  // soft glow
   mapCtx.save();
   mapCtx.globalAlpha = 0.35;
-  mapCtx.fillStyle = '#60a5fa'; // blue-ish, inherits your dark theme nicely
-  lastBubbles.forEach(b => {
-    mapCtx.beginPath();
-    mapCtx.arc(b.x, b.y, b.r, 0, Math.PI*2);
-    mapCtx.fill();
-  });
+  mapCtx.fillStyle = '#60a5fa';
+  lastBubbles.forEach(b => { mapCtx.beginPath(); mapCtx.arc(b.x,b.y,b.r,0,Math.PI*2); mapCtx.fill(); });
   mapCtx.restore();
 
-  // draw solid core
+  // solid core
   mapCtx.save();
   mapCtx.globalAlpha = 0.9;
   mapCtx.fillStyle = '#93c5fd';
@@ -203,11 +204,13 @@ function renderBubbles(ccCounts) {
   mapCtx.restore();
 }
 
-// hook into your existing stats loader
+// override your existing loadStats to also draw bubbles
 const _loadStatsOrig = loadStats;
 loadStats = async function() {
   const r = await fetch(API + '/stats');
   const { data } = await r.json();
+
+  // 1) keep your table
   const top = Object.entries(data.cc || {}).sort((a,b)=>b[1]-a[1]).slice(0,20);
   const rows = top.map(([cc,n])=> `<tr><td>${CCODES.of(cc)||cc}</td><td>${n}</td></tr>`).join('');
   statsEl.innerHTML = `<table>
@@ -215,17 +218,20 @@ loadStats = async function() {
     <tbody>${rows || '<tr><td colspan="2" class="muted">No data yet</td></tr>'}</tbody>
   </table>`;
 
-  // render bubbles for ALL countries we know about
-  renderBubbles(data.cc || {});
+  // 2) remember counts for future redraws (resize)
+  window.__latestCC = data.cc || {};
+
+  // 3) ensure canvas size is correct, then draw
+  sizeCanvasToWrap();
+  renderBubbles(window.__latestCC);
 };
 
-// simple hover tooltip
+// hover tooltip
 mapCanvas.addEventListener('mousemove', (e) => {
   if (!lastBubbles.length) return;
   const rect = mapCanvas.getBoundingClientRect();
   const x = (e.clientX - rect.left) * (mapCanvas.width / rect.width);
   const y = (e.clientY - rect.top ) * (mapCanvas.height / rect.height);
-
   const hit = lastBubbles.find(b => (x-b.x)**2 + (y-b.y)**2 <= (b.r*1.1)**2);
   if (hit) {
     mapTooltip.style.display = 'block';
@@ -237,19 +243,15 @@ mapCanvas.addEventListener('mousemove', (e) => {
   }
 });
 
-// respond to container resize (keep canvas sharp)
-new ResizeObserver(entries => {
-  for (const entry of entries) {
-    const w = entry.contentRect.width | 0;
-    const h = entry.contentRect.height | 0;
-    // lock aspect ratio 860x480
-    const H = Math.round(w * (480/860));
-    mapCanvas.width = w;
-    mapCanvas.height = H;
-    renderBubbles((window.__latestCC)||{});
-  }
-}).observe(document.getElementById('mapWrap'));
+// resize observer to keep pixels sharp
+new ResizeObserver(() => {
+  sizeCanvasToWrap();
+  renderBubbles(window.__latestCC || {});
+}).observe(mapWrap);
 
+// set initial canvas size once, in case stats load is slow
+sizeCanvasToWrap();
+  
 </script>
 </body>
 </html>
