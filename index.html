@@ -1,1 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tunok’s Lab</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root { --bg:#0b1220; --fg:#e5e7eb; --muted:#9ca3af; --panel:#111827; }
+  body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--fg); }
+  header { padding:28px 20px; border-bottom:1px solid #1f2937; }
+  main { padding:20px; display:grid; gap:20px; max-width:900px; margin:0 auto; }
+  .card { background:var(--panel); border:1px solid #1f2937; border-radius:12px; padding:16px; }
+  h2 { margin:0 0 12px 0; }
+  .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  select, button { background:#0f172a; color:var(--fg); border:1px solid #334155; border-radius:8px; padding:8px 10px; }
+  button { cursor:pointer; }
+  .pill { background:#0f172a; border:1px solid #334155; border-radius:999px; padding:6px 10px; color:var(--muted); }
+  table { border-collapse:collapse; width:100%; margin-top:10px; }
+  th, td { border-bottom:1px solid #1f2937; padding:6px 4px; text-align:left; }
+  th { color:var(--muted); font-weight:600; }
+  .muted { color:var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1 style="margin:0">Tunok’s Lab</h1>
+  <div class="muted">Playground for little experiments. Tell me where you’re from.</div>
+</header>
 
+<main>
+  <section class="card">
+    <h2>Where are you from?</h2>
+    <div class="row">
+      <div id="detected" class="pill">Detected: …</div>
+      <select id="country"></select>
+      <button id="reportBtn">Submit</button>
+      <span id="feedback" class="pill" style="display:none"></span>
+      <button id="refreshStats" style="margin-left:auto">Refresh stats</button>
+    </div>
+    <div id="stats"></div>
+  </section>
+</main>
+
+<script>
+const API = 'https://gitvisitorstat.tunok-24.workers.dev'; // <-- your Worker URL
+
+// Build a lightweight country list (expand anytime)
+const CCODES = new Intl.DisplayNames(['en'], { type:'region' });
+const COUNTRY_CODES = ['US','CA','GB','DE','FR','IN','CN','JP','KR','AU','BR','MX','ZA','NG','IT','ES','SE','NO','FI','NL','PL','TR','AE','SG','MY','ID','PH','VN','TH','TW','HK','NZ','AR','CL','CO','PE','BE','CH','AT','PT','IE','GR','DK','CZ','HU','RO','BG','UA','SK'];
+
+const detectedEl = document.getElementById('detected');
+const selectEl = document.getElementById('country');
+const feedbackEl = document.getElementById('feedback');
+const statsEl = document.getElementById('stats');
+
+// Populate dropdown
+selectEl.innerHTML = COUNTRY_CODES
+  .sort((a,b)=>(CCODES.of(a)||a).localeCompare(CCODES.of(b)||b))
+  .map(cc=>`<option value="${cc}">${CCODES.of(cc)||cc}</option>`).join('');
+
+async function hit() {
+  try {
+    const r = await fetch(API + '/hit', { method:'POST' });
+    const j = await r.json();
+    detectedEl.textContent = 'Detected: ' + (CCODES.of(j.real)||j.real||'Unknown');
+  } catch {
+    detectedEl.textContent = 'Detected: (error)';
+  }
+}
+
+async function report() {
+  const cc = selectEl.value;
+  const r = await fetch(API + '/selfreport?cc=' + encodeURIComponent(cc));
+  const j = await r.json();
+  if (!j.ok) return;
+  feedbackEl.style.display = 'inline-block';
+  if (j.mismatch) {
+    feedbackEl.textContent = `Mismatch — you said ${CCODES.of(j.self)||j.self}, detected ${CCODES.of(j.real)||j.real}`;
+    feedbackEl.style.background = '#3b0a0a';
+    feedbackEl.style.color = '#fca5a5';
+  } else {
+    feedbackEl.textContent = `Match — ${CCODES.of(j.real)||j.real}`;
+    feedbackEl.style.background = '#0a3b19';
+    feedbackEl.style.color = '#86efac';
+  }
+  fetch(API + '/event?name=selfreport', { method:'POST' }).catch(()=>{});
+  await loadStats();
+}
+
+async function loadStats() {
+  const r = await fetch(API + '/stats');
+  const { data } = await r.json();
+  const top = Object.entries(data.cc || {}).sort((a,b)=>b[1]-a[1]).slice(0,20);
+  const rows = top.map(([cc,n])=> `<tr><td>${CCODES.of(cc)||cc}</td><td>${n}</td></tr>`).join('');
+  statsEl.innerHTML = `<table>
+    <thead><tr><th>Country</th><th>Visits</th></tr></thead>
+    <tbody>${rows || '<tr><td colspan="2" class="muted">No data yet</td></tr>'}</tbody>
+  </table>`;
+}
+
+document.getElementById('reportBtn').addEventListener('click', report);
+document.getElementById('refreshStats').addEventListener('click', loadStats);
+
+(async function init(){
+  await hit();       // increments + shows detected country
+  await loadStats(); // builds the table
+})();
+</script>
+</body>
+</html>
